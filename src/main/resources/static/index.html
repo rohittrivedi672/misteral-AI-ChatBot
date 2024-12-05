@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Prompt Submission</title>
+    <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+<div id="chat-container">
+    <h1>AI Chat Prompt</h1>
+    <textarea id="prompt" placeholder="Type your prompt and press Enter..." required></textarea>
+    <div id="response"></div>
+</div>
+
+<script>
+    // Listen for the "Enter" key press in the text area
+    document.getElementById("prompt").addEventListener("keypress", function(event) {
+        if (event.key === "Enter") {
+            event.preventDefault();  // Prevent default action of Enter key (e.g., adding new line)
+            submitPrompt();
+        }
+    });
+
+    async function submitPrompt() {
+        const prompt = document.getElementById("prompt").value;
+        const responseDiv = document.getElementById("response");
+        responseDiv.textContent = "Processing...";
+
+        try {
+            const response = await fetch(`/ai/prompt1?prompt=${encodeURIComponent(prompt)}`, {
+                method: "GET"
+            });
+
+            if (response.ok) {
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                let result = '';
+                const stream = new ReadableStream({
+                    start(controller) {
+                        function push() {
+                            reader.read().then(({ done, value }) => {
+                                if (done) {
+                                    controller.close();
+                                    return;
+                                }
+                                result += decoder.decode(value, { stream: true });
+                                responseDiv.textContent = result;  // Display the streaming result
+                                push();
+                            });
+                        }
+                        push();
+                    }
+                });
+                await new Response(stream).text();
+            } else {
+                responseDiv.textContent = "Error: " + response.statusText;
+            }
+        } catch (error) {
+            responseDiv.textContent = "Error: " + error.message;
+        }
+    }
+</script>
+</body>
+</html>
